@@ -349,3 +349,31 @@ func GetUserWallets(ctx context.Context, user *User, password string) ([]*Wallet
 	}
 	return wallets, nil
 }
+
+func GetWalletDetails(ctx context.Context, user *User, walletName string, password string) (*Wallet, []byte, []byte, error) {
+	// Find the wallet with matching name and user ID
+	var wallet Wallet
+	err := WalletCollection.FindOne(ctx, bson.M{
+		"user_id":     user.ID,
+		"wallet_name": walletName,
+	}).Decode(&wallet)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("wallet not found: %v", err)
+	}
+
+	// Derive encryption key
+	encryptionSalt := blake2b.Sum256([]byte(user.PasswordSalt + wallet.WalletName))
+	encryptionKey := deriveEncryptionKey(password, encryptionSalt[:])
+
+	// Decrypt private key and mnemonic
+	privKeyBytes, err := DecryptData(encryptionKey, wallet.EncryptedPrivKey)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("failed to decrypt private key: %v", err)
+	}
+	mnemonicBytes, err := DecryptData(encryptionKey, wallet.EncryptedMnemonic)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("failed to decrypt mnemonic: %v", err)
+	}
+
+	return &wallet, privKeyBytes, mnemonicBytes, nil
+}

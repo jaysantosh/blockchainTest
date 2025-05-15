@@ -51,7 +51,8 @@ func main() {
 			fmt.Println("1. Generate Wallet from Mnemonic")
 			fmt.Println("2. Logout")
 			fmt.Println("3. Show my wallets")
-			fmt.Println("3. Exit")
+			fmt.Println("4. Show My Wallet Details")
+			fmt.Println("5. Exit")
 		}
 
 		fmt.Print("Enter your choice: ")
@@ -141,8 +142,29 @@ func main() {
 						fmt.Printf("%d. %s\n", i+1, w.WalletName)
 					}
 				}
-
 			case "4":
+				fmt.Print("Enter wallet name to view details: ")
+				walletName, _ := reader.ReadString('\n')
+				walletName = strings.TrimSpace(walletName)
+
+				fmt.Print("Enter your password: ")
+				password, _ := reader.ReadString('\n')
+				password = strings.TrimSpace(password)
+
+				wallet, privKey, mnemonic, err := GetWalletDetails(ctx, loggedInUser, walletName, password)
+				if err != nil {
+					fmt.Println("Error:", err)
+				} else {
+					fmt.Println("Wallet Details:")
+					fmt.Printf("Name       : %s\n", wallet.WalletName)
+					fmt.Printf("Address    : %s\n", wallet.Address)
+					fmt.Printf("Public Key : %s\n", wallet.PublicKey)
+					fmt.Printf("Private Key: %x\n", privKey)
+					fmt.Printf("Mnemonic   : %s\n", mnemonic)
+					fmt.Printf("Created At : %s\n", wallet.CreatedAt.Format(time.RFC3339))
+				}
+
+			case "5":
 				fmt.Println("Exiting Wallet CLI.")
 				return
 
