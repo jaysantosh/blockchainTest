@@ -1,4 +1,4 @@
-package main
+package wallet_core
 
 import (
 	"context"
@@ -116,7 +116,7 @@ func subtleCompare(a, b []byte) bool {
 
 // deriveEncryptionKey derives a symmetric key from password + salt (used for encrypting wallet keys)
 // Here we use Argon2id again but with different salt to separate from password hash
-func deriveEncryptionKey(password string, salt []byte) []byte {
+func DeriveEncryptionKey(password string, salt []byte) []byte {
 	return argon2.IDKey([]byte(password), salt, ArgonTime, ArgonMemory, ArgonThreads, ArgonKeyLen)
 }
 
@@ -237,7 +237,7 @@ func GenerateWalletFromMnemonic(ctx context.Context, user *User, password string
 	if err != nil {
 		return nil, err
 	}
-	accountKey, err = accountKey.Child(hdkeychain.HardenedKeyStart + 0) // coin_type
+	accountKey, err = accountKey.Child(hdkeychain.HardenedKeyStart + 999) // coin_type
 	if err != nil {
 		return nil, err
 	}
@@ -286,7 +286,7 @@ func GenerateWalletFromMnemonic(ctx context.Context, user *User, password string
 func CreateWallet(ctx context.Context, user *User, password string, walletName string, address string, publicKey string, privKey []byte, mnemonic []byte) (*Wallet, error) {
 	// Derive a separate encryption key using user's password and user's password salt + some wallet-specific salt (for demo, use user salt)
 	encryptionSalt := blake2b.Sum256([]byte(user.PasswordSalt + walletName))
-	encryptionKey := deriveEncryptionKey(password, encryptionSalt[:])
+	encryptionKey := DeriveEncryptionKey(password, encryptionSalt[:])
 
 	encPrivKey, err := EncryptData(encryptionKey, privKey)
 	if err != nil {
@@ -331,7 +331,7 @@ func GetUserWallets(ctx context.Context, user *User, password string) ([]*Wallet
 
 		// Derive encryption key per wallet (same method as CreateWallet)
 		encryptionSalt := blake2b.Sum256([]byte(user.PasswordSalt + wallet.WalletName))
-		encryptionKey := deriveEncryptionKey(password, encryptionSalt[:])
+		encryptionKey := DeriveEncryptionKey(password, encryptionSalt[:])
 
 		privKeyBytes, err := DecryptData(encryptionKey, wallet.EncryptedPrivKey)
 		if err != nil {
@@ -363,7 +363,7 @@ func GetWalletDetails(ctx context.Context, user *User, walletName string, passwo
 
 	// Derive encryption key
 	encryptionSalt := blake2b.Sum256([]byte(user.PasswordSalt + wallet.WalletName))
-	encryptionKey := deriveEncryptionKey(password, encryptionSalt[:])
+	encryptionKey := DeriveEncryptionKey(password, encryptionSalt[:])
 
 	// Decrypt private key and mnemonic
 	privKeyBytes, err := DecryptData(encryptionKey, wallet.EncryptedPrivKey)

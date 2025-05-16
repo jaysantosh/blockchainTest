@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	wallet "test/wallet"
 	"time"
 
 	"go.mongodb.org/mongo-driver/mongo"
@@ -30,11 +31,11 @@ func main() {
 	}
 
 	db := client.Database("walletdb") // Use your DB name
-	UserCollection = db.Collection("users")
-	WalletCollection = db.Collection("wallets")
+	wallet.UserCollection = db.Collection("users")
+	wallet.WalletCollection = db.Collection("wallets")
 
 	fmt.Println("Welcome to the Wallet CLI")
-	var loggedInUser *User = nil
+	var loggedInUser *wallet.User = nil
 
 	for {
 
@@ -70,7 +71,7 @@ func main() {
 				password, _ := reader.ReadString('\n')
 				password = strings.TrimSpace(password)
 
-				user, err := RegisterUser(ctx, username, password)
+				user, err := wallet.RegisterUser(ctx, username, password)
 				if err != nil {
 					fmt.Println("Registration failed:", err)
 				} else {
@@ -87,7 +88,7 @@ func main() {
 				password, _ := reader.ReadString('\n')
 				password = strings.TrimSpace(password)
 
-				user, err := AuthenticateUser(ctx, username, password)
+				user, err := wallet.AuthenticateUser(ctx, username, password)
 				if err != nil {
 					fmt.Println("Login failed:", err)
 				} else {
@@ -114,7 +115,7 @@ func main() {
 				password, _ := reader.ReadString('\n')
 				password = strings.TrimSpace(password)
 
-				wallet, err := GenerateWalletFromMnemonic(ctx, loggedInUser, password, walletName)
+				wallet, err := wallet.GenerateWalletFromMnemonic(ctx, loggedInUser, password, walletName)
 				if err != nil {
 					fmt.Println("Wallet generation failed:", err)
 				} else {
@@ -133,7 +134,7 @@ func main() {
 				password, _ := reader.ReadString('\n')
 				password = strings.TrimSpace(password)
 
-				wallets, err := GetUserWallets(ctx, loggedInUser, password)
+				wallets, err := wallet.GetUserWallets(ctx, loggedInUser, password)
 				if err != nil {
 					fmt.Println("Failed to get wallets:", err)
 				} else {
@@ -151,7 +152,7 @@ func main() {
 				password, _ := reader.ReadString('\n')
 				password = strings.TrimSpace(password)
 
-				wallet, privKey, mnemonic, err := GetWalletDetails(ctx, loggedInUser, walletName, password)
+				wallet, privKey, mnemonic, err := wallet.GetWalletDetails(ctx, loggedInUser, walletName, password)
 				if err != nil {
 					fmt.Println("Error:", err)
 				} else {
