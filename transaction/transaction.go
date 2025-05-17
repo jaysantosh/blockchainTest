@@ -3,8 +3,6 @@ package main
 import (
 	"bufio"
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -13,65 +11,21 @@ import (
 	"strings"
 	"time"
 
-	"github.com/btcsuite/btcd/btcec/v2/ecdsa"
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	// "go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
+	"test/transaction_signing"
 	wallet_core "test/wallet"
 
 	"github.com/btcsuite/btcd/btcec/v2"
 )
 
-// User struct (as you gave)
-type User struct {
-	ID           primitive.ObjectID `bson:"_id,omitempty"`
-	Username     string             `bson:"username"`
-	PasswordHash string             `bson:"password_hash"`
-	PasswordSalt string             `bson:"password_salt"`
-	CreatedAt    time.Time          `bson:"created_at"`
-}
-
-// Wallet struct (as you gave)
-type Wallet struct {
-	ID                primitive.ObjectID `bson:"_id,omitempty"`
-	UserID            primitive.ObjectID `bson:"user_id"`
-	WalletName        string             `bson:"wallet_name"`
-	Address           string             `bson:"address"`
-	PublicKey         string             `bson:"public_key"`
-	EncryptedPrivKey  string             `bson:"encrypted_priv_key"`
-	EncryptedMnemonic string             `bson:"encrypted_mnemonic"`
-	CreatedAt         time.Time          `bson:"created_at"`
-}
-
-// Assume your existing AuthenticateUser, GetUserWallets, GetWalletDetails functions are imported
-
-// Transaction struct
-type Transaction struct {
-	From      string  `json:"from"`
-	To        string  `json:"to"`
-	Amount    float64 `json:"amount"`
-	Nonce     int     `json:"nonce"`
-	Signature string  `json:"signature"`
-}
-
-// signTransaction signs the transaction data with the private key bytes and returns hex signature
-func signTransaction(tx Transaction, privKeyBytes []byte) (string, error) {
-	privKey, _ := btcec.PrivKeyFromBytes(privKeyBytes)
-	txData := fmt.Sprintf("%s:%s:%f:%d", tx.From, tx.To, tx.Amount, tx.Nonce)
-	hash := sha256.Sum256([]byte(txData))
-
-	// For btcec/v2, use the ecdsa package to sign
-	signature := ecdsa.Sign(privKey, hash[:])
-
-	return hex.EncodeToString(signature.Serialize()), nil
-}
-
 // Mock blockchain provider interface (replace with your real blockchain client)
 type BlockchainProvider interface {
 	GetBalance(address string) float64
 	GetNonce(address string) int
-	ProcessTransaction(tx Transaction) bool
+	ProcessTransaction(tx transaction_signing.Transaction) bool
 }
 
 // Example dummy implementation
@@ -85,7 +39,7 @@ func (d DummyBlockchain) GetNonce(address string) int {
 	return 1 // dummy nonce
 }
 
-func (d DummyBlockchain) ProcessTransaction(tx Transaction) bool {
+func (d DummyBlockchain) ProcessTransaction(tx transaction_signing.Transaction) bool {
 	// In reality, broadcast tx to blockchain network and wait for success
 	fmt.Println("Processing transaction on blockchain network...")
 	time.Sleep(time.Second)
@@ -177,17 +131,28 @@ func main() {
 	nonce := blockchain.GetNonce(selectedWallet.Address)
 
 	// Step 7: Create and sign transaction
-	tx := Transaction{
-		From:   selectedWallet.Address,
-		To:     toAddr,
-		Amount: amount,
-		Nonce:  nonce,
+	tx := &transaction_signing.Transaction{
+		From:      selectedWallet.Address,
+		To:        toAddr,
+		Amount:    amount,
+		Nonce:     uint64(nonce),
+		Timestamp: time.Now().Unix(), // Set timestamp explicitly
 	}
-	sig, err := signTransaction(tx, privKeyBytes)
+	privKey, _ := btcec.PrivKeyFromBytes(privKeyBytes)
+	sig, err := transaction_signing.SignTransaction(tx, privKey)
 	if err != nil {
 		log.Fatalf("Failed to sign transaction: %v", err)
 	}
 	tx.Signature = sig
+
+	// Step 6: Verify the transaction signature
+
+	pubKey := privKey.PubKey()
+	valid, err := transaction_signing.VerifyTransactionSignature(tx, pubKey)
+	if err != nil {
+		log.Fatalf("Failed to verify signature: %v", err)
+	}
+	fmt.Println("valid :", valid)
 
 	// Show transaction JSON
 	txJSON, _ := json.MarshalIndent(tx, "", "  ")
@@ -195,7 +160,7 @@ func main() {
 	fmt.Println(string(txJSON))
 
 	// Step 8: Send transaction to blockchain network
-	success := blockchain.ProcessTransaction(tx)
+	success := blockchain.ProcessTransaction(*tx)
 	if !success {
 		log.Fatalf("Transaction failed to process")
 	}

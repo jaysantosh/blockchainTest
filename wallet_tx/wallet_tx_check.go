@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"strings"
+	"test/transaction_signing"
 	wallet_core "test/wallet"
 	"time"
 
@@ -77,7 +78,7 @@ func main() {
 	privKey, _ := btcec.PrivKeyFromBytes(privKeyBytes)
 
 	// Build a transaction to sign
-	tx := &Transaction{
+	tx := &transaction_signing.Transaction{
 		From:      wallet.PublicKey,
 		To:        "recipient_address_here",
 		Amount:    10.0,
@@ -86,14 +87,14 @@ func main() {
 	}
 
 	// Sign transaction
-	_, err = SignTransaction(tx, privKey)
+	_, err = transaction_signing.SignTransaction(tx, privKey)
 	if err != nil {
 		log.Fatalf("Failed to sign transaction: %v", err)
 	}
 
 	// Verify signature
 	pubKey, _ := btcec.ParsePubKey(privKey.PubKey().SerializeCompressed())
-	valid, err := VerifyTransactionSignature(tx, pubKey)
+	valid, err := transaction_signing.VerifyTransactionSignature(tx, pubKey)
 	if err != nil {
 		log.Fatalf("Failed to verify signature: %v", err)
 	}

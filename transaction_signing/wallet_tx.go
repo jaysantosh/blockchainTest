@@ -1,4 +1,4 @@
-package main
+package transaction_signing
 
 import (
 	"context"
