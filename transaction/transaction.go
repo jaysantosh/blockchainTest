@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -12,6 +13,7 @@ import (
 	"time"
 
 	// "go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
@@ -44,6 +46,24 @@ func (d DummyBlockchain) ProcessTransaction(tx transaction_signing.Transaction) 
 	fmt.Println("Processing transaction on blockchain network...")
 	time.Sleep(time.Second)
 	return true
+}
+
+func IsValidAddress(ctx context.Context, address string) (bool, error) {
+	if address == "" {
+		return false, fmt.Errorf("address is empty")
+	}
+
+	filter := bson.M{"address": address}
+	var result bson.M
+	err := wallet_core.WalletCollection.FindOne(ctx, filter).Decode(&result)
+	if err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return false, nil // Address does not exist
+		}
+		return false, err // Some DB error
+	}
+
+	return true, nil
 }
 
 func main() {
@@ -153,6 +173,17 @@ func main() {
 		log.Fatalf("Failed to verify signature: %v", err)
 	}
 	fmt.Println("valid :", valid)
+
+	// ✅ Check if recipient address exists
+	ctx1, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	valid_address, err := IsValidAddress(ctx1, toAddr)
+	if err != nil {
+		log.Fatalf("Failed to validate recipient address: %v", err)
+	}
+	if !valid_address {
+		log.Fatalf("Invalid recipient address: %s does not exist", toAddr)
+	}
 
 	// Show transaction JSON
 	txJSON, _ := json.MarshalIndent(tx, "", "  ")
